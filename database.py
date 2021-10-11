@@ -7,34 +7,29 @@ import logging
 import logging.config
 import json
 import socket
+import pandas as pd
+import psycopg2.extras as extras
 from sqlalchemy import create_engine
 from contextlib import contextmanager
-
-import os 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-import sys 
-sys.path.append(script_directory)
-
 from timer import timed
 from io import StringIO
+from pathlib import Path
 
-#logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-#logger = logging.getLogger(__name__)
+SELF_DIR = Path(__file__).resolve().parent
 
-
-with open(f'{script_directory}/logging.config') as f:
+with open(SELF_DIR / 'logging.config') as f:
     LOG_CONFIG = json.loads(f.read())
 
 logging.config.dictConfig(LOG_CONFIG)
 logger = logging.getLogger("data")
 
-with open(f'{script_directory}/.common.json') as f:
+with open(SELF_DIR / '.common.json') as f:
     common_vars = json.loads(f.read())
 if socket.gethostname() == 'postgres':
     file = '.prod.json'
 else:
     file = '.dev.json'
-with open(f'{script_directory}/{file}') as f:
+with open(SELF_DIR / file) as f:
     env_vars = json.loads(f.read())
          
 env_vars.update(common_vars)    
@@ -83,7 +78,27 @@ def timescaledb_parallel_copy(schema, table, df, workers=1):
     finally:
         os.system(f''' rm {filename} ''')
 
-
+@timed
+def execute_values(con, schema, table, df, notify_message = None):
+    tuples = [tuple(x) for x in df.to_numpy()]
+    cols = ','.join(list(df.columns))
+    query  = "INSERT INTO %s.%s(%s) VALUES %%s" % (schema, table, cols)
+    cursor = con.cursor()
+    try:
+        extras.execute_values(cursor, query, tuples)
+        con.commit()
+        if notify_message is not None:
+            cursor.execute(notify_message)
+            con.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print("Error: %s" % error)
+        logger.exception(error)
+        con.rollback()
+        cursor.close()
+    finally:
+        print("execute_values() done")
+        cursor.close()
+    
 @timed
 def copy_from_stringio(schema, table, df, notify_message = None):
     cols = get_columns(schema, table)

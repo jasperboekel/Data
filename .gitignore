@@ -14,9 +14,11 @@ __pypackages__/
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
+# All folders
+*/
+
 # Others
 .idea/
-
 *.csv
 *.log
 *.lp
