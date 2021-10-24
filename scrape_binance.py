@@ -74,6 +74,7 @@ def parse_multiplex_socket(data):
 def scrape(symbol: str, kline_size: str, start: dt.datetime, end: dt.datetime = TOMORROW) -> pd.DataFrame:
     try:
         data = binance_client.get_historical_klines(symbol, kline_size, start.strftime(FORMAT), end.strftime(FORMAT))
+        print(data)
     except Exception as error:
         print(error)
         logger.exception(error)
@@ -87,9 +88,9 @@ def scrape_historical(symbol: str, kline_size: str, start: dt.datetime, end: dt.
     klines = binance_client.get_historical_klines_generator(symbol, kline_size, 
                                                             start.strftime(FORMAT), 
                                                             end.strftime(FORMAT))
-    for batch in chunks(klines, size=250_000):
+    for batch in chunks(klines, size=500):
         df = parse_klines(batch, symbol)
-        db.timescaledb_parallel_copy(schema='prices', table='coins', df=df)
+        db.copy_from_stringio(schema='prices', table='coins', df=df)
 
 
 #@task(max_retries=5, retry_delay=timedelta(seconds=3))
