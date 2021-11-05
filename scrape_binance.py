@@ -52,7 +52,6 @@ def parse_klines(data, symbol) -> pd.DataFrame:
     df['dumptime'] = dt.datetime.now()
     return df
 
-data = {'stream': 'ethusdt@ticker', 'data': {'e': '24hrTicker', 'E': 1633981704662, 's': 'ETHUSDT', 'p': '18.26000000', 'P': '0.518', 'w': '3522.35414264', 'x': '3525.11000000', 'c': '3542.98000000', 'Q': '0.12830000', 'b': '3542.97000000', 'B': '7.66560000', 'a': '3542.98000000', 'A': '1.96410000', 'o': '3524.72000000', 'h': '3623.80000000', 'l': '3371.00000000', 'v': '546840.51980000', 'q': '1926165970.28086400', 'O': 1633895304662, 'C': 1633981704662, 'F': 630179434, 'L': 631485793, 'n': 1306360}}
 
 @timed
 def parse_multiplex_socket(data):
@@ -88,7 +87,7 @@ def scrape_historical(symbol: str, kline_size: str, start: dt.datetime, end: dt.
     klines = binance_client.get_historical_klines_generator(symbol, kline_size, 
                                                             start.strftime(FORMAT), 
                                                             end.strftime(FORMAT))
-    for batch in chunks(klines, size=500):
+    for batch in chunks(klines, size=50_000):
         df = parse_klines(batch, symbol)
         db.copy_from_stringio(schema='prices', table='coins', df=df)
 
